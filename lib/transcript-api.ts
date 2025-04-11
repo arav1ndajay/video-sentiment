@@ -1,4 +1,3 @@
-import ytdl from '@distube/ytdl-core';
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
 
