@@ -88,7 +88,7 @@ async function getYtDlpPath() {
     downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
   }
   
-  const binDir = process.cwd();
+  const binDir = '/tmp/bin';
   const binPath = path.join(binDir, binaryName);
 
   // If file exists, return
