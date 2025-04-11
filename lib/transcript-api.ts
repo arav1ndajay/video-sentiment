@@ -13,7 +13,7 @@ export async function getVideoTranscript(videoId: string) {
       executablePath: await chromium.executablePath(
         `https://github.com/Sparticuz/chromium/releases/download/v116.0.0/chromium-v116.0.0-pack.tar`
       ),
-      headless: chromium.headless,
+      headless: true,
     });
     
     const page = await browser.newPage();
