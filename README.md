@@ -7,7 +7,7 @@ This is a Next.js application that performs timestamp-based sentiment analysis o
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/youtube-sentiment-analyzer.git
+git clone https://github.com/arav1ndajay/video-sentiment
 cd youtube-sentiment-analyzer
 ```
 
