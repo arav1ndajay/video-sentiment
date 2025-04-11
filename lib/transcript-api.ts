@@ -6,10 +6,16 @@ import { Innertube } from 'youtubei.js';
 export async function getVideoTranscript(videoId: string) {
   try {
     // Initialize the Innertube client
-    const youtube = await Innertube.create();
+    const youtube = await Innertube.create({
+      lang: 'en',
+      location: 'US',
+      retrieve_player: false,
+    });
     
     // Get video info
     const video = await youtube.getInfo(videoId);
+    const transcript = await video.getTranscript()
+    console.log(transcript)
     
     const videoTitle = video.basic_info.title || 'Unknown Title';
     const videoDuration = video.basic_info.duration || 0;
