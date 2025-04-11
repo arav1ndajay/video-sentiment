@@ -1,39 +1,98 @@
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
+import puppeteer from 'puppeteer'
 
 export async function getVideoTranscript(videoId: string) {
   try {
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const response = await axios.get(videoUrl);
-    const pageHtml = response.data;
-    
-    const titleMatch = pageHtml.match(/<title>([^<]*)<\/title>/);
-    const videoTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '') : 'Unknown Title';
-    
-    let videoDuration = 0;
-    const durationMatch = pageHtml.match(/\"lengthSeconds\":\"(\d+)\"/);
-    if (durationMatch && durationMatch[1]) {
-      videoDuration = parseInt(durationMatch[1]);
+    const browser = await puppeteer.launch()
+    const page = await browser.newPage()
+    await page.goto(`https://www.youtube.com/watch?v=${videoId}`, {
+      waitUntil: 'networkidle2',
+      timeout: 30000
+    });
+    // Get video title
+    const videoTitle = await page.evaluate(() => {
+      const titleElement = document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer');
+      return titleElement ? titleElement.textContent?.trim() : 'Unknown Title';
+    });
+
+    // Get video duration
+    const videoDuration = await page.evaluate(() => {
+      // Look for the video duration in the player
+      const videoElement = document.querySelector('video');
+      if (videoElement && !isNaN(videoElement.duration)) {
+        return Math.ceil(videoElement.duration);
+      }
+      
+      // Alternative: try to find it in the page metadata
+      const scriptTags = Array.from(document.querySelectorAll('script'));
+      for (const script of scriptTags) {
+        const content = script.textContent;
+        if (content && content.includes('"lengthSeconds"')) {
+          const match = content.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
+          if (match && match[1]) {
+            return parseInt(match[1]);
+          }
+        }
+      }
+      
+      return 0;
+    });
+
+    // Extract caption track URL
+    const captionUrl = await page.evaluate(() => {
+      // First look for caption tracks in the page source
+      const scriptTags = Array.from(document.querySelectorAll('script'));
+      for (const script of scriptTags) {
+        const content = script.textContent;
+        if (content && content.includes('"captionTracks"')) {
+          const match = content.match(/"captionTracks"\s*:\s*\[\s*{\s*"baseUrl"\s*:\s*"([^"]+)"/);
+          if (match && match[1]) {
+            return match[1].replace(/\\u0026/g, '&');
+          }
+        }
+      }
+      return null;
+    });
+
+    if (!captionUrl) {
+      await browser.close();
+      throw new Error('Caption url not found!');
     }
+
+    // const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    // const response = await axios.get(videoUrl);
+    // const pageHtml = response.data;
     
-    let captionUrl = '';
-    const timedTextMatch = pageHtml.match(/\"captionTracks\":\[\{\"baseUrl\":\"([^\"]+)\"/);
+    // const titleMatch = pageHtml.match(/<title>([^<]*)<\/title>/);
+    // const videoTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '') : 'Unknown Title';
     
-    if (timedTextMatch && timedTextMatch[1]) {
-      captionUrl = timedTextMatch[1].replace(/\\u0026/g, '&');
-    } else {
-      throw new Error('Failed to find caption URL in the page' + videoDuration + videoTitle);
-    }
+    // let videoDuration = 0;
+    // const durationMatch = pageHtml.match(/\"lengthSeconds\":\"(\d+)\"/);
+    // if (durationMatch && durationMatch[1]) {
+    //   videoDuration = parseInt(durationMatch[1]);
+    // }
+    
+    // let captionUrl = '';
+    // const timedTextMatch = pageHtml.match(/\"captionTracks\":\[\{\"baseUrl\":\"([^\"]+)\"/);
+    
+    // if (timedTextMatch && timedTextMatch[1]) {
+    //   captionUrl = timedTextMatch[1].replace(/\\u0026/g, '&');
+    // } else {
+    //   throw new Error('Failed to find caption URL in the page' + videoDuration + videoTitle);
+    // }
     
     const captionResponse = await axios.get(captionUrl);
     const xmlData = captionResponse.data;
     const originalSegments = parseXmlCaptions(xmlData);
     const segments = combineSegmentsIntoChunks(originalSegments);
     
-    if (videoDuration === 0 && segments.length > 0) {
-      videoDuration = Math.ceil(segments[segments.length - 1].end);
-    }
+    // if (videoDuration === 0 && segments.length > 0) {
+    //   videoDuration = Math.ceil(segments[segments.length - 1].end);
+    // }
     
+    await browser.close();
+
     return {
       transcript: segments,
       videoId,
