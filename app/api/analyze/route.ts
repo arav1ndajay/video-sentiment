@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Sentiment from 'sentiment';
 import { getVideoTranscript } from '@/lib/transcript-api';
 
+export const maxDuration = 60
+
 // Initialize the sentiment analyzer
 const sentiment = new Sentiment();
 
