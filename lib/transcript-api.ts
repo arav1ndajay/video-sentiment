@@ -2,7 +2,6 @@ import ytdl from '@distube/ytdl-core';
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
 
-// Core function that gets transcript data
 export async function getVideoTranscript(videoId: string) {
   // Get video details
   console.log("Going to get info for " + videoId)

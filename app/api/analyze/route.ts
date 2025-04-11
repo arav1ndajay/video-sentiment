@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Get transcript from the transcript API
+    console.log("Going to get video transcript.")
     const transcriptData = await getVideoTranscript(id);
     
     // Analyze sentiment of each segment
