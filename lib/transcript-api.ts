@@ -22,7 +22,7 @@ export async function getVideoTranscript(videoId: string) {
     if (timedTextMatch && timedTextMatch[1]) {
       captionUrl = timedTextMatch[1].replace(/\\u0026/g, '&');
     } else {
-      throw new Error('Failed to find caption URL in the page');
+      throw new Error('Failed to find caption URL in the page' + videoDuration + videoTitle);
     }
     
     const captionResponse = await axios.get(captionUrl);
