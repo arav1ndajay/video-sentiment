@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 229, 231, 235; /* Light gray text */
+  --background-start-rgb: 31, 41, 55; /* Dark blue-gray */
+  --background-end-rgb: 17, 24, 39; /* Even darker blue-gray */
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-end-rgb));
+}
+
+/* Custom classes */
+.sentiment-positive {
+  @apply bg-green-900 bg-opacity-30 border-l-4 border-green-500;
+}
+
+.sentiment-negative {
+  @apply bg-red-900 bg-opacity-30 border-l-4 border-red-500;
+}
+
+.sentiment-neutral {
+  @apply bg-blue-900 bg-opacity-30 border-l-4 border-blue-500;
+}
+
+.timestamp {
+  @apply text-blue-400 hover:text-blue-300 cursor-pointer;
+}
+
+.loading-spinner {
+  @apply animate-spin h-5 w-5 text-gray-300;
+}
+
+.sentiment-chart-tooltip {
+  @apply bg-gray-800 p-2 shadow rounded text-sm text-gray-200 border border-gray-700;
+}
+
+/* Additional dark theme elements */
+.card {
+  @apply bg-gray-800 rounded-lg shadow-md;
+}
+
+.button-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-300;
+}
+
+.button-secondary {
+  @apply bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition duration-300;
+}
+
+.input {
+  @apply bg-gray-700 border border-gray-600 text-gray-200 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.header {
+  @apply bg-gray-900 border-b border-gray-700;
+}
+
+.sidebar {
+  @apply bg-gray-800 border-r border-gray-700;
+}
