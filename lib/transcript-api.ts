@@ -16,6 +16,8 @@ export async function getVideoTranscript(videoId: string) {
     const captions = video.captions;
 
     console.log(captions);
+    console.log("Video title: " + videoTitle)
+    console.log("Video duration: " + videoDuration)
     const captionTrack = captions?.caption_tracks;
 
     if (!captionTrack){
