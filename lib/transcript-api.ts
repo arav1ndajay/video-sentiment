@@ -1,50 +1,91 @@
 import { TranscriptSegment } from '@/lib/types';
 import axios from 'axios';
-
-import { Innertube } from 'youtubei.js';
+import chromium from '@sparticuz/chromium-min'
+import puppeteer from 'puppeteer-core';
 
 export async function getVideoTranscript(videoId: string) {
   try {
-    // Initialize the Innertube client
-    const youtube = await Innertube.create({
-      lang: 'en',
-      location: 'US',
-      retrieve_player: false,
+    
+    // Launch the browser using puppeteer with Sparticuz's chromium
+    const browser = await puppeteer.launch({
+      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(
+        `https://github.com/Sparticuz/chromium/releases/download/v116.0.0/chromium-v116.0.0-pack.tar`
+      ),
+      headless: chromium.headless,
     });
     
-    // Get video info
-    const video = await youtube.getInfo(videoId);
-    console.log(video.basic_info)
+    const page = await browser.newPage();
     
-    const videoTitle = video.basic_info.title || 'Unknown Title';
-    const videoDuration = video.basic_info.duration || 0;
-    const captions = video.captions;
+    // Set a user agent
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
+    
+    await page.goto(`https://www.youtube.com/watch?v=${videoId}`, {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
+    
+    // Get video title
+    const videoTitle = await page.evaluate(() => {
+      const titleElement = document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer');
+      return titleElement ? titleElement.textContent?.trim() : 'Unknown Title';
+    });
+    console.log(videoTitle)
 
-    console.log(captions);
-    console.log("Video title: " + videoTitle)
-    console.log("Video duration: " + videoDuration)
-    const captionTrack = captions?.caption_tracks;
+    // Get video duration
+    const videoDuration = await page.evaluate(() => {
+      // Look for the video duration in the player
+      const videoElement = document.querySelector('video');
+      if (videoElement && !isNaN(videoElement.duration)) {
+        return Math.ceil(videoElement.duration);
+      }
+      
+      // Alternative: try to find it in the page metadata
+      const scriptTags = Array.from(document.querySelectorAll('script'));
+      for (const script of scriptTags) {
+        const content = script.textContent;
+        if (content && content.includes('"lengthSeconds"')) {
+          const match = content.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
+          if (match && match[1]) {
+            return parseInt(match[1]);
+          }
+        }
+      }
+      
+      return 0;
+    });
+    console.log(videoDuration)
+    // Extract caption track URL
+    const captionUrl = await page.evaluate(() => {
+      // First look for caption tracks in the page source
+      const scriptTags = Array.from(document.querySelectorAll('script'));
+      for (const script of scriptTags) {
+        const content = script.textContent;
+        if (content && content.includes('"captionTracks"')) {
+          const match = content.match(/"captionTracks"\s*:\s*\[\s*{\s*"baseUrl"\s*:\s*"([^"]+)"/);
+          if (match && match[1]) {
+            return match[1].replace(/\\u0026/g, '&');
+          }
+        }
+      }
+      return null;
+    });
 
-    if (!captionTrack){
-      throw new Error('Caption url not found');
+    console.log(captionUrl)
+
+    if (!captionUrl) {
+      await browser.close();
+      throw new Error('Caption URL not found!');
     }
-
-    const captionUrl = captionTrack[0].base_url
     
-    // Convert transcript format
-    // const originalSegments = transcriptList.map((item, index) => ({
-    //   id: index,
-    //   start: item.start,
-    //   end: item.start + item.duration,
-    //   text: item.text
-    // }));
     const captionResponse = await axios.get(captionUrl);
     const xmlData = captionResponse.data;
     const originalSegments = parseXmlCaptions(xmlData);
-    
-    // Combine segments into chunks
     const segments = combineSegmentsIntoChunks(originalSegments);
     
+    await browser.close();
+
     return {
       transcript: segments,
       videoId,
@@ -53,10 +94,9 @@ export async function getVideoTranscript(videoId: string) {
     };
   } catch (error) {
     console.error('Error fetching video transcript:', error);
-    throw new Error('Failed to get video transcript: ' + (error));
+    throw new Error(`Failed to get video transcript: ${error}`);
   }
 }
-
 // export async function getVideoTranscript(videoId: string) {
 //   try {
 //     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
