@@ -14,8 +14,7 @@ export async function getVideoTranscript(videoId: string) {
     
     // Get video info
     const video = await youtube.getInfo(videoId);
-    const transcript = await video.getTranscript()
-    console.log(transcript)
+    console.log(video.basic_info)
     
     const videoTitle = video.basic_info.title || 'Unknown Title';
     const videoDuration = video.basic_info.duration || 0;
