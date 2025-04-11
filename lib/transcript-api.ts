@@ -5,7 +5,13 @@ import { TranscriptSegment } from '@/lib/types';
 export async function getVideoTranscript(videoId: string) {
   // Get video details
   console.log("Going to get info for " + videoId)
-  const info = await ytdl.getInfo(videoId);
+  let info = null
+  try{
+    info = await ytdl.getInfo(videoId);
+  }
+  catch{
+    console.log("This library failed.")
+  }
   console.log("Got info for " + videoId)
 
   if (!info || !info.videoDetails) {
@@ -30,7 +36,7 @@ export async function getVideoTranscript(videoId: string) {
   }
   
   // Get captions from youtube
-  const captionUrl = captionTrack.baseUrl;
+  const captionUrl = "https://www.youtube.com/api/timedtext?v=bBBb35eZSFM&ei=QM34Z9DJIofs4-EPnNWdgAM&caps=asr&opi=112496729&xoaf=5&hl=en&ip=0.0.0.0&ipbits=0&expire=1744383920&sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf&signature=CB77B01146C59B1F8160691680F3120EBE6A7784.41F7C0DAF16FA6F2574CE544F6DE4B32AC917C0A&key=yt8&kind=asr&lang=en";
   const response = await axios.get(captionUrl);
   const xmlData = response.data;
   const originalSegments = parseXmlCaptions(xmlData);
