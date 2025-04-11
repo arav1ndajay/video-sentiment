@@ -33,6 +33,8 @@ export async function getVideoTranscript(videoId: string) {
     });
     console.log(videoTitle)
 
+    await new Promise(r => setTimeout(r, 3000));
+
     // Get video duration
     const videoDuration = await page.evaluate(() => {
       // Look for the video duration in the player
