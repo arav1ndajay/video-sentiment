@@ -35,7 +35,6 @@ export function isValidYouTubeUrl(url: string): boolean {
  */
 export async function getVideoDetails(videoId: string): Promise<VideoDetails | null> {
   try {
-    // For client-side, we'll use the API endpoint approach
     const response = await axios.get(`/api/video-details?videoId=${videoId}`);
     
     if (response.status !== 200 || !response.data) {

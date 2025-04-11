@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Sentiment from 'sentiment';
-import axios from 'axios';
+import { getVideoTranscript } from '@/lib/transcript-api';
 
 // Initialize the sentiment analyzer
 const sentiment = new Sentiment();
@@ -48,8 +48,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Get transcript from the transcript API
-    const transcriptResponse = await axios.post(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/transcript`, { videoId: id });
-    const transcriptData = transcriptResponse.data;
+    const transcriptData = await getVideoTranscript(id);
     
     // Analyze sentiment of each segment
     const analyzedSegments = transcriptData.transcript.map((segment: any) => {
