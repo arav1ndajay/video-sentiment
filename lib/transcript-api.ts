@@ -1,15 +1,24 @@
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
-import puppeteer from 'puppeteer'
+import { chromium } from 'playwright-chromium';
+
 
 export async function getVideoTranscript(videoId: string) {
   try {
-    const browser = await puppeteer.launch()
-    const page = await browser.newPage()
+    const browser = await chromium.launch({
+      headless: true
+    });
+
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    });
+    
+    const page = await context.newPage();
     await page.goto(`https://www.youtube.com/watch?v=${videoId}`, {
-      waitUntil: 'networkidle2',
+      waitUntil: 'networkidle',
       timeout: 30000
     });
+    
     // Get video title
     const videoTitle = await page.evaluate(() => {
       const titleElement = document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer');
