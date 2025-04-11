@@ -5,7 +5,9 @@ import { TranscriptSegment } from '@/lib/types';
 // Core function that gets transcript data
 export async function getVideoTranscript(videoId: string) {
   // Get video details
+  console.log("Going to get info for " + videoId)
   const info = await ytdl.getInfo(videoId);
+  console.log("Got info for " + videoId)
 
   if (!info || !info.videoDetails) {
     throw new Error('Failed to get video details');
