@@ -1,21 +1,21 @@
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
-import { chromium } from 'playwright-chromium';
-
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 export async function getVideoTranscript(videoId: string) {
   try {
-    const browser = await chromium.launch({
-      headless: true
-    });
-
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    console.log(await chromium.executablePath())
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath('/opt/nodejs/node_modules/@sparticuz/chromium/bin'),
+      headless: chromium.headless,
     });
     
-    const page = await context.newPage();
+    const page = await browser.newPage();
     await page.goto(`https://www.youtube.com/watch?v=${videoId}`, {
-      waitUntil: 'networkidle',
+      waitUntil: 'networkidle0',
       timeout: 30000
     });
     
