@@ -18,7 +18,8 @@
     "react-dom": "^19.0.0",
     "react-player": "^2.13.0",
     "recharts": "^2.9.0",
-    "sentiment": "^5.0.2"
+    "sentiment": "^5.0.2",
+    "youtubei.js": "^13.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
