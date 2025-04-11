@@ -1,58 +1,56 @@
 import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
-import ytdl from '@distube/ytdl-core';
 
 export async function getVideoTranscript(videoId: string) {
-  // Get video details
-  const info = await ytdl.getInfo(videoId, {
-    requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-      },
-    },
-  });
-  
-  if (!info || !info.videoDetails) {
-     new Error('Failed to get video details');
+  try {
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const response = await axios.get(videoUrl);
+    const pageHtml = response.data;
+    
+    const titleMatch = pageHtml.match(/<title>([^<]*)<\/title>/);
+    const videoTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '') : 'Unknown Title';
+    
+    let videoDuration = 0;
+    const durationMatch = pageHtml.match(/\"lengthSeconds\":\"(\d+)\"/);
+    if (durationMatch && durationMatch[1]) {
+      videoDuration = parseInt(durationMatch[1]);
+    }
+    
+    let captionUrl = '';
+    const timedTextMatch = pageHtml.match(/\"captionTracks\":\[\{\"baseUrl\":\"([^\"]+)\"/);
+    
+    if (timedTextMatch && timedTextMatch[1]) {
+      captionUrl = timedTextMatch[1].replace(/\\u0026/g, '&');
+    } else {
+      throw new Error('Failed to find caption URL in the page');
+    }
+    
+    const captionResponse = await axios.get(captionUrl);
+    const xmlData = captionResponse.data;
+    const originalSegments = parseXmlCaptions(xmlData);
+    const segments = combineSegmentsIntoChunks(originalSegments);
+    
+    if (videoDuration === 0 && segments.length > 0) {
+      videoDuration = Math.ceil(segments[segments.length - 1].end);
+    }
+    
+    return {
+      transcript: segments,
+      videoId,
+      videoTitle,
+      videoDuration,
+    };
+  } catch (error) {
+    console.error('Error fetching video transcript:', error);
+    throw new Error('Failed to get video transcript');
   }
-  
-  const videoDetails = {
-    id: videoId,
-    title: info.videoDetails.title || 'Unknown Title',
-    duration: parseInt(info.videoDetails.lengthSeconds) || 0,
-  };
-
-  const tracks = info.player_response.captions?.playerCaptionsTracklistRenderer.captionTracks;
-
-  if (!tracks || tracks.length === 0) {
-    throw new Error('Failed to get video captions');
-  }
-
-  let captionTrack = tracks.find(track => track.languageCode === 'en');
-  if (!captionTrack) {
-    captionTrack = tracks[0];
-  }
-  
-  // Get captions from youtube
-  const captionUrl = captionTrack.baseUrl
-  const response = await axios.get(captionUrl);
-  const xmlData = response.data;
-  const originalSegments = parseXmlCaptions(xmlData);
-  const segments = combineSegmentsIntoChunks(originalSegments);
-
-  return {
-    transcript: segments,
-    videoId,
-    videoTitle: videoDetails.title,
-    videoDuration: videoDetails.duration,
-  };
 }
 
 function parseXmlCaptions(xmlData: string) {
   const segments: TranscriptSegment[] = [];
   let id = 0;
   
-  // Simple regex-based parsing for <text start="..." dur="...">content</text>
+  // Regex-based parsing for <text start="..." dur="...">content</text>
   const regex = /<text start="([\d\.]+)" dur="([\d\.]+)"[^>]*>([\s\S]*?)<\/text>/gi;
   let match;
   
