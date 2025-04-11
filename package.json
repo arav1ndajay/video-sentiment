@@ -10,15 +10,14 @@
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.6",
-    "@sparticuz/chromium": "^133.0.0",
     "axios": "^1.6.0",
     "next": "^15.2.4",
-    "puppeteer-core": "^24.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-player": "^2.13.0",
     "recharts": "^2.9.0",
-    "sentiment": "^5.0.2"
+    "sentiment": "^5.0.2",
+    "youtube-dl-exec": "^3.0.20"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

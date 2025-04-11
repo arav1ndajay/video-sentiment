@@ -1,107 +1,66 @@
-import axios from 'axios';
 import { TranscriptSegment } from '@/lib/types';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+import fs from 'fs'
+import path from 'path'
+import {create} from 'youtube-dl-exec'
+import axios from 'axios';
 
 export async function getVideoTranscript(videoId: string) {
   try {
-    console.log(await chromium.executablePath())
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath('/opt/nodejs/node_modules/@sparticuz/chromium/bin'),
-      headless: chromium.headless,
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    // Create temporary directory if it doesn't exist
+    // const tmpDir = path.join('/tmp', 'yt-transcripts');
+    // if (!fs.existsSync(tmpDir)) {
+    //   fs.mkdirSync(tmpDir, { recursive: true });
+    // }
+    
+    const ytDlpPath = await getYtDlpPath();
+    const youtubeDl = create(ytDlpPath);
+    
+    // // Generate a unique filename
+    // const outputFile = path.join(tmpDir, `${videoId}.vtt`);
+    
+    // Get video info including title and duration
+    const videoInfo = await youtubeDl(videoUrl, {
+      skipDownload: true,
+      dumpSingleJson: true,
     });
     
-    const page = await browser.newPage();
-    await page.goto(`https://www.youtube.com/watch?v=${videoId}`, {
-      waitUntil: 'networkidle0',
-      timeout: 30000
-    });
+    const videoTitle = videoInfo.title || 'Unknown Title';
+    const videoDuration = videoInfo.duration || 0;
+    const captions = videoInfo.automatic_captions
+
+    // Download only the English subtitles/captions
+    // const result = await youtubeDl(videoUrl, {
+    //   skipDownload: true,        // Don't download the video
+    //   writeSub: true,            // Write subtitle file
+    //   writeAutoSub: true,        // Write auto-generated subtitles if available
+    //   subLang: 'en',             // English subtitles
+    //   subFormat: 'vtt',          // VTT format
+    //   output: outputFile,        // Output file
+    //   noWarnings: true,          // Suppress warnings
+    // });
     
-    // Get video title
-    const videoTitle = await page.evaluate(() => {
-      const titleElement = document.querySelector('h1.title.style-scope.ytd-video-primary-info-renderer');
-      return titleElement ? titleElement.textContent?.trim() : 'Unknown Title';
-    });
+    // // Read the subtitle file
+    // const vttContent = fs.readFileSync(outputFile, 'utf-8');
+    // Parse the VTT file into segments
+    // const originalSegments = parseVttCaptions(vttContent);
 
-    // Get video duration
-    const videoDuration = await page.evaluate(() => {
-      // Look for the video duration in the player
-      const videoElement = document.querySelector('video');
-      if (videoElement && !isNaN(videoElement.duration)) {
-        return Math.ceil(videoElement.duration);
-      }
-      
-      // Alternative: try to find it in the page metadata
-      const scriptTags = Array.from(document.querySelectorAll('script'));
-      for (const script of scriptTags) {
-        const content = script.textContent;
-        if (content && content.includes('"lengthSeconds"')) {
-          const match = content.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
-          if (match && match[1]) {
-            return parseInt(match[1]);
-          }
-        }
-      }
-      
-      return 0;
-    });
-
-    // Extract caption track URL
-    const captionUrl = await page.evaluate(() => {
-      // First look for caption tracks in the page source
-      const scriptTags = Array.from(document.querySelectorAll('script'));
-      for (const script of scriptTags) {
-        const content = script.textContent;
-        if (content && content.includes('"captionTracks"')) {
-          const match = content.match(/"captionTracks"\s*:\s*\[\s*{\s*"baseUrl"\s*:\s*"([^"]+)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\u0026/g, '&');
-          }
-        }
-      }
-      return null;
-    });
-
-    if (!captionUrl) {
-      await browser.close();
-      throw new Error('Caption url not found!');
+    const captionUrl = captions["en"].find(x => x.ext == "srv1")?.url; 
+    if(!captionUrl ){
+      throw new Error("Caption url not found.")
     }
-
-    // const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    // const response = await axios.get(videoUrl);
-    // const pageHtml = response.data;
-    
-    // const titleMatch = pageHtml.match(/<title>([^<]*)<\/title>/);
-    // const videoTitle = titleMatch ? titleMatch[1].replace(' - YouTube', '') : 'Unknown Title';
-    
-    // let videoDuration = 0;
-    // const durationMatch = pageHtml.match(/\"lengthSeconds\":\"(\d+)\"/);
-    // if (durationMatch && durationMatch[1]) {
-    //   videoDuration = parseInt(durationMatch[1]);
-    // }
-    
-    // let captionUrl = '';
-    // const timedTextMatch = pageHtml.match(/\"captionTracks\":\[\{\"baseUrl\":\"([^\"]+)\"/);
-    
-    // if (timedTextMatch && timedTextMatch[1]) {
-    //   captionUrl = timedTextMatch[1].replace(/\\u0026/g, '&');
-    // } else {
-    //   throw new Error('Failed to find caption URL in the page' + videoDuration + videoTitle);
-    // }
-    
     const captionResponse = await axios.get(captionUrl);
     const xmlData = captionResponse.data;
     const originalSegments = parseXmlCaptions(xmlData);
+    // Combine segments into chunks, reusing your existing function
     const segments = combineSegmentsIntoChunks(originalSegments);
     
-    // if (videoDuration === 0 && segments.length > 0) {
-    //   videoDuration = Math.ceil(segments[segments.length - 1].end);
+    // try {
+    //   fs.unlinkSync(outputFile);
+    // } catch (e) {
+    //   console.warn('Failed to delete temporary file:', e);
     // }
     
-    await browser.close();
-
     return {
       transcript: segments,
       videoId,
@@ -110,9 +69,107 @@ export async function getVideoTranscript(videoId: string) {
     };
   } catch (error) {
     console.error('Error fetching video transcript:', error);
-    throw new Error('Failed to get video transcript');
+    throw new Error('Failed to get video transcript' + error);
   }
 }
+
+async function getYtDlpPath() {
+  const platform = process.platform;
+  
+  let binaryName = platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  let downloadUrl;
+  
+  if (platform === 'win32') {
+    downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+  } else if (platform === 'darwin') { // macOS
+    downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos';
+    binaryName = 'yt-dlp_macos';
+  } else { // Linux and others
+    downloadUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+  }
+  
+  const binDir = process.cwd();
+  const binPath = path.join(binDir, binaryName);
+
+  // If file exists, return
+  if (fs.existsSync(binPath)) {
+    return binPath;
+  }
+  
+  // Create bin directory if it doesn't exist
+  if (!fs.existsSync(binDir)) {
+    fs.mkdirSync(binDir, { recursive: true });
+  }
+  
+  // Always download a fresh copy of yt-dlp
+  console.log(`Downloading yt-dlp from ${downloadUrl} to ${binPath}`);
+  
+  try {
+    // Download the binary
+    const response = await axios({
+      method: 'GET',
+      url: downloadUrl,
+      responseType: 'arraybuffer'
+    });
+    
+    // Write the binary to disk
+    fs.writeFileSync(binPath, Buffer.from(response.data));
+    
+    // Make it executable (except on Windows)
+    if (platform !== 'win32') {
+      fs.chmodSync(binPath, 0o755); // rwxr-xr-x permissions
+    }
+    
+    console.log(`yt-dlp binary saved and made executable at ${binPath}`);
+    return binPath;
+  } catch (error) {
+    console.error('Failed to download or save yt-dlp:', error);
+    throw new Error(`Failed to prepare yt-dlp: ${error}`);
+  }
+}
+
+// function parseVttCaptions(vttContent: string): TranscriptSegment[] {
+//   const segments: TranscriptSegment[] = [];
+//   let id = 0;
+  
+//   // Regular expression to match VTT cue blocks
+//   const cueRegex = /(\d+:\d+:\d+\.\d+) --> (\d+:\d+:\d+\.\d+)(?:.*\n)+?([\s\S]*?)(?:\n\n|$)/g;
+  
+//   let match;
+//   while ((match = cueRegex.exec(vttContent)) !== null) {
+//     // Parse the timestamps (HH:MM:SS.sss format)
+//     const startTime = parseVttTimestamp(match[1]);
+//     const endTime = parseVttTimestamp(match[2]);
+    
+//     // Clean up the text
+//     const text = match[3].trim()
+//       .replace(/<[^>]*>/g, '') // Remove HTML-like tags
+//       .replace(/\n/g, ' ')     // Replace newlines with spaces
+//       .trim();
+    
+//     if (text) {
+//       segments.push({
+//         id: id++,
+//         start: startTime,
+//         end: endTime,
+//         text,
+//       });
+//     }
+//   }
+  
+//   return segments;
+// }
+
+// function parseVttTimestamp(timestamp: string): number {
+//   // Format: HH:MM:SS.sss
+//   const parts = timestamp.split(':');
+//   const hours = parseInt(parts[0], 10);
+//   const minutes = parseInt(parts[1], 10);
+//   const seconds = parseFloat(parts[2]);
+  
+//   return hours * 3600 + minutes * 60 + seconds;
+// }
+
 
 function parseXmlCaptions(xmlData: string) {
   const segments: TranscriptSegment[] = [];
